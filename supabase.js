@@ -59,8 +59,7 @@
   }
   function errorText(error) {
     const message = error && error.message ? error.message : String(error || 'невідома помилка');
-    if (/confirm|email/i.test(message)) return 'Вимкніть підтвердження email у Supabase Auth → Providers → Email. Вхід у цьому сайті використовує ім’я замість email.';
-    return 'Помилка : ' + message;
+    return 'Помилка: ' + message;
   }
   function rowPayload(item) {
     const payload = { ...item };
