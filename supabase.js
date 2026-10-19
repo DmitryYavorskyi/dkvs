@@ -217,21 +217,20 @@
   }
   async function submitAuth() {
     const name = uname.value.trim();
-    const pass = pw.value;
+    const accessCode = document.getElementById('inviteCode').value.trim().toLowerCase();
     const playerId = document.getElementById('playerId').value.trim();
-    const inviteCode = document.getElementById('inviteCode').value.trim();
-    if (!name || !pass) return msg('Введіть ім’я користувача та пароль');
+    if (!name || !accessCode) return msg('Введіть Nickname та код доступу');
     try {
       if (reg) {
-        if (!inviteCode) return msg('Введіть код-запрошення від власника');
+        if (!accessCode) return msg('Введіть код доступу від власника');
         if (!playerId) return msg('Вкажіть ID гравця');
         const { data: existing, error: lookupError } = await client.rpc('dkvs_lookup_login', { requested_login: name });
         if (lookupError) throw lookupError;
         if (existing) return msg('Акаунт із таким ім’ям уже зареєстрований. Увійдіть або зверніться до власника.');
         const email = await usernameEmail(name, crypto.getRandomValues(new Uint32Array(4)).join('-') + Date.now());
         const { data, error } = await client.auth.signUp({
-          email, password: pass,
-          options: { data: { login_name: name.toLocaleLowerCase('uk-UA'), display_name: name, player_id: playerId, invite_code: inviteCode } }
+          email, password: accessCode,
+          options: { data: { login_name: name.toLocaleLowerCase('uk-UA'), display_name: name, player_id: playerId, invite_code: accessCode } }
         });
         if (error) throw error;
         if (!data.session) return msg('Акаунт створено. Вимкніть підтвердження email у Supabase Auth, тоді можна буде увійти за ім’ям і паролем.');
@@ -241,7 +240,7 @@
         const { data: email, error: lookupError } = await client.rpc('dkvs_lookup_login', { requested_login: name });
         if (lookupError) throw lookupError;
         if (!email) return msg('Активний акаунт із таким ім’ям не знайдено. Зареєструйтеся знову або зверніться до власника.');
-        const { data, error } = await client.auth.signInWithPassword({ email, password: pass });
+        const { data, error } = await client.auth.signInWithPassword({ email, password: accessCode });
         if (error) throw error;
         hide('auth');
         await startSession(data.user, false);
@@ -253,8 +252,19 @@
   const oldToggle = toggle.onclick;
   toggle.onclick = event => {
     oldToggle(event);
-    if (reg) document.querySelector('#auth .box>p').textContent = 'Ім’я та пароль для входу. Email вводити не потрібно.';
-    else document.querySelector('#auth .box>p').textContent = 'Службовий обліковий запис';
+    const codeField = document.getElementById('inviteCodeField');
+    const codeLabel = document.querySelector('label[for="inviteCode"]');
+    const codeInput = document.getElementById('inviteCode');
+    if (codeField) codeField.style.display = '';
+    if (reg) {
+      document.querySelector('#auth .box>p').textContent = 'Вкажіть Nickname, ID гравця та код від власника. Той самий код використовуватимете для наступних входів.';
+      if (codeLabel) codeLabel.textContent = 'Код-запрошення / код доступу';
+      codeInput.placeholder = 'Персональний код від власника';
+    } else {
+      document.querySelector('#auth .box>p').textContent = 'Увійдіть за Nickname та особистим кодом доступу.';
+      if (codeLabel) codeLabel.textContent = 'Особистий код доступу';
+      codeInput.placeholder = 'Ваш постійний код для входу';
+    }
   };
 
   const originalRender = render;
@@ -297,23 +307,45 @@
   });
 
   window.issueInvite = async function () {
-    if (!d.user || d.user.role !== 'Власник сайту') return msg('Створювати код-запрошення може лише власник сайту');
+    if (!d.user || d.user.role !== 'Власник сайту') return msg('Створювати коди доступу може лише власник сайту');
     const loginName = document.getElementById('inviteLoginName').value.trim();
     if (!loginName) return msg('Вкажіть Nickname для входу, за яким закріпити код');
     if (loginName.length > 50) return msg('Nickname має бути не довшим за 50 символів');
-    const { data, error } = await client.rpc('dkvs_issue_invite', { p_login_name: loginName });
-    if (error) return msg(errorText(error));
-    document.getElementById('inviteResultCode').textContent = data;
+    const sessionResult = await client.auth.getSession();
+    const accessToken = sessionResult.data.session && sessionResult.data.session.access_token;
+    if (sessionResult.error || !accessToken) return msg('Сесія входу відсутня. Увійдіть знову.');
+    let code;
+    const existing = d.users.find(user => user.loginName.toLocaleLowerCase('uk-UA') === loginName.toLocaleLowerCase('uk-UA'));
+    if (existing) {
+      const { data, error } = await client.functions.invoke('owner-rotate-login-code', {
+        headers: { Authorization: `Bearer ${accessToken}` },
+        body: { login_name: loginName }
+      });
+      if (error) {
+        let details = error.message || 'невідома помилка';
+        try {
+          const responseBody = await error.context.json();
+          if (responseBody && responseBody.error) details = responseBody.error;
+        } catch {}
+        return msg('Не вдалося замінити код входу: ' + details);
+      }
+      code = data.code;
+    } else {
+      const { data, error } = await client.rpc('dkvs_issue_invite', { p_login_name: loginName });
+      if (error) return msg(errorText(error));
+      code = data;
+    }
+    document.getElementById('inviteResultCode').textContent = code;
     document.getElementById('inviteResultLogin').textContent = loginName;
+    const note = document.getElementById('inviteResultNote');
+    if (note) note.textContent = existing
+      ? 'Це новий код входу; попередній код більше не працює. Передайте його працівнику.'
+      : 'Працівник вводить цей код під час реєстрації та використовує його для наступних входів.';
     document.getElementById('inviteResult').style.display = 'block';
     try {
-      const { data: sessionData, error: sessionError } = await client.auth.getSession();
-      if (sessionError) throw sessionError;
-      const accessToken = sessionData.session && sessionData.session.access_token;
-      if (!accessToken) return msg('Код створено, але сесія входу відсутня. Увійдіть знову. Код показано нижче.');
       const { error: notifyError } = await client.functions.invoke('send-invite-telegram', {
         headers: { Authorization: `Bearer ${accessToken}` },
-        body: { code: data, login_name: loginName }
+        body: { code, login_name: loginName }
       });
       if (notifyError) {
         let details = notifyError.message || 'невідома помилка';
@@ -321,11 +353,11 @@
           const responseBody = await notifyError.context.json();
           if (responseBody && responseBody.error) details = responseBody.error;
         } catch {}
-        return msg('Код створено, але Telegram: ' + details + '. Код показано нижче.');
+        return msg('Код доступу створено, але Telegram: ' + details + '. Передайте його працівнику вручну.');
       }
-      msg('Код для ' + loginName + ' створено та надіслано в Telegram');
+      msg('Код доступу для ' + loginName + ' створено та надіслано у ваш Telegram. Передайте його працівнику.');
     } catch (error) {
-      msg('Код створено, але Telegram: ' + (error && error.message ? error.message : 'невідома помилка') + '. Код показано нижче.');
+      msg('Код доступу створено, але Telegram: ' + (error && error.message ? error.message : 'невідома помилка') + '. Передайте його працівнику вручну.');
     }
   };
   window.copyInvite = async function () {
