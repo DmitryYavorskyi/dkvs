@@ -267,6 +267,7 @@
     const roleAccess = d.user && ['Власник сайту','Лідер'].includes(d.user.role);
     document.querySelector('.nav button[data-p="roles"]').style.display = roleAccess ? 'flex' : 'none';
     const owner = d.user && d.user.role === 'Власник сайту';
+    document.getElementById('inviteAdmin').style.display = owner ? '' : 'none';
     Array.from(rsel.options).forEach(option => { option.hidden = !owner && option.value !== 'Заступник'; });
     if (!owner && d.user && d.user.role === 'Лідер') rsel.value = 'Заступник';
     newNews.style.display = d.user && ['Власник сайту','Лідер','Заступник'].includes(d.user.role) ? '' : 'none';
