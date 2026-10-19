@@ -43,6 +43,11 @@ create table if not exists public.dkvs_invites (
 );
 alter table public.dkvs_invites add column if not exists reserved_login_name text;
 
+-- Erase old plaintext credentials; old unbound invitations must be replaced.
+update public.dkvs_invites
+set code = gen_random_uuid()
+where used_at is not null or reserved_login_name is null;
+
 create table if not exists public.dkvs_records (
   id uuid primary key default gen_random_uuid(),
   category text not null check (category in ('prisoner','blacklist','vehicle','announcement')),
