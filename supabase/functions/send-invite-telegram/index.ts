@@ -45,15 +45,19 @@ Deno.serve(async (req) => {
   const { data: isOwner, error: roleError } = await client.rpc("dkvs_is_owner");
   if (roleError || isOwner !== true) return json({ error: "Owner access required" }, 403);
 
-  let body: { code?: unknown };
+  let body: { code?: unknown; login_name?: unknown };
   try {
     body = await req.json();
   } catch {
     return json({ error: "Invalid request" }, 400);
   }
   const inviteCode = typeof body.code === "string" ? body.code.trim() : "";
+  const loginName = typeof body.login_name === "string" ? body.login_name.trim() : "";
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(inviteCode)) {
     return json({ error: "Invalid invitation code" }, 400);
+  }
+  if (!loginName || loginName.length > 50 || /[\r\n]/.test(loginName)) {
+    return json({ error: "Invalid login nickname" }, 400);
   }
 
   const botToken = Deno.env.get("TELEGRAM_BOT_TOKEN");
