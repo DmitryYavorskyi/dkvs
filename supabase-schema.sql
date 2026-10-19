@@ -115,7 +115,10 @@ begin
   if not found then
     raise exception 'Код-запрошення невірний або вже використаний';
   end if;
-  if invite_login_name is not null and lower(trim(invite_login_name)) <> uname then
+  if invite_login_name is null then
+    raise exception 'Цей старий код не закріплений за Nickname. Створіть новий код-запрошення';
+  end if;
+  if lower(trim(invite_login_name)) <> uname then
     raise exception 'Цей код-запрошення закріплений за іншим Nickname';
   end if;
 
