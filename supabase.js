@@ -303,11 +303,25 @@
     document.getElementById('inviteResultCode').textContent = data;
     document.getElementById('inviteResult').style.display = 'block';
     try {
-      const { error: notifyError } = await client.functions.invoke('send-invite-telegram', { body: { code: data } });
-      if (notifyError) return msg('Код створено, але Telegram не налаштований або повідомлення не надіслано. Код показано нижче.');
+      const { data: sessionData, error: sessionError } = await client.auth.getSession();
+      if (sessionError) throw sessionError;
+      const accessToken = sessionData.session && sessionData.session.access_token;
+      if (!accessToken) return msg('Код створено, але сесія входу відсутня. Увійдіть знову. Код показано нижче.');
+      const { error: notifyError } = await client.functions.invoke('send-invite-telegram', {
+        headers: { Authorization: `Bearer ${accessToken}` },
+        body: { code: data }
+      });
+      if (notifyError) {
+        let details = notifyError.message || 'невідома помилка';
+        try {
+          const responseBody = await notifyError.context.json();
+          if (responseBody && responseBody.error) details = responseBody.error;
+        } catch {}
+        return msg('Код створено, але Telegram: ' + details + '. Код показано нижче.');
+      }
       msg('Код-запрошення створено та надіслано в Telegram');
-    } catch {
-      msg('Код створено, але Telegram не налаштований або повідомлення не надіслано. Код показано нижче.');
+    } catch (error) {
+      msg('Код створено, але Telegram: ' + (error && error.message ? error.message : 'невідома помилка') + '. Код показано нижче.');
     }
   };
   window.copyInvite = async function () {
