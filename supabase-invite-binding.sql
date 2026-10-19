@@ -3,6 +3,11 @@
 alter table public.dkvs_invites
   add column if not exists reserved_login_name text;
 
+-- Remove plaintext codes from older consumed rows and invalidate old unbound codes.
+update public.dkvs_invites
+set code = gen_random_uuid()
+where used_at is not null or reserved_login_name is null;
+
 create or replace function public.dkvs_create_profile()
 returns trigger
 language plpgsql
@@ -41,7 +46,7 @@ begin
   end if;
 
   update public.dkvs_invites
-  set used_at = now(), used_by = new.id
+  set used_at = now(), used_by = new.id, code = gen_random_uuid()
   where code = invite_row;
 
   n := coalesce(nullif(trim(new.raw_user_meta_data->>'display_name'), ''), split_part(new.email, '@', 1));
