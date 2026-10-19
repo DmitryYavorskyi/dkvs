@@ -35,7 +35,7 @@ create unique index dkvs_profiles_login_name_unique
 
 create table if not exists public.dkvs_invites (
   code uuid primary key default gen_random_uuid(),
-  created_by uuid not null references auth.users(id),
+  created_by uuid references auth.users(id),
   created_at timestamptz not null default now(),
   used_at timestamptz,
   used_by uuid references auth.users(id)
