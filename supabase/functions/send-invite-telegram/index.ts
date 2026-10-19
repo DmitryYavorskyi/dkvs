@@ -69,7 +69,7 @@ Deno.serve(async (req) => {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       chat_id: chatId,
-      text: `Код-запрошення ДКВС: ${inviteCode}\nДійсний для однієї реєстрації.`,
+      text: `Код-запрошення ДКВС для Nickname «${loginName}»: ${inviteCode}\nДійсний для однієї реєстрації.`,
     }),
   });
   if (!telegramResponse.ok) {
