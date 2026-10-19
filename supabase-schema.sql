@@ -82,7 +82,7 @@ security definer
 set search_path = public
 as $$ select coalesce(public.dkvs_current_role() = 'Власник сайту', false) $$;
 
--- New accounts start as inactive employees. Owners must activate staff after checking them. Client metadata cannot assign roles.
+-- A valid one-time owner invitation activates the new account as an employee. Client metadata cannot assign roles.
 create or replace function public.dkvs_create_profile()
 returns trigger
 language plpgsql
@@ -116,8 +116,8 @@ begin
   n := coalesce(nullif(trim(new.raw_user_meta_data->>'display_name'), ''), split_part(new.email, '@', 1));
   uname := coalesce(nullif(trim(new.raw_user_meta_data->>'login_name'), ''), lower(split_part(new.email, '@', 1)));
   pid := coalesce(new.raw_user_meta_data->>'player_id', '');
-  insert into public.dkvs_profiles(user_id, login_name, auth_email, display_name, player_id, role)
-    values (new.id, uname, new.email, n, pid, 'Співробітник');
+  insert into public.dkvs_profiles(user_id, login_name, auth_email, display_name, player_id, role, active)
+    values (new.id, uname, new.email, n, pid, 'Співробітник', true);
   return new;
 end;
 $$;
@@ -126,6 +126,15 @@ drop trigger if exists dkvs_auth_user_created on auth.users;
 create trigger dkvs_auth_user_created
   after insert on auth.users
   for each row execute function public.dkvs_create_profile();
+
+-- If the earlier invitation flow created inactive profiles, activate only accounts that consumed an invitation.
+update public.dkvs_profiles p
+set active = true
+where p.active = false
+  and exists (
+    select 1 from public.dkvs_invites i
+    where i.used_by = p.user_id and i.used_at is not null
+  );
 
 -- Owners issue single-use invitation codes. Codes stay private in this table and are consumed by the auth trigger.
 create or replace function public.dkvs_issue_invite()
