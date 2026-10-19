@@ -217,7 +217,7 @@
   }
   async function submitAuth() {
     const name = uname.value.trim();
-    const accessCode = document.getElementById('inviteCode').value.trim().toLowerCase();
+    const accessCode = document.getElementById('inviteCode').value.trim();
     const playerId = document.getElementById('playerId').value.trim();
     if (!name || !accessCode) return msg('Введіть Nickname та код доступу');
     try {
