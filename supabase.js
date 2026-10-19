@@ -298,9 +298,13 @@
 
   window.issueInvite = async function () {
     if (!d.user || d.user.role !== 'Власник сайту') return msg('Створювати код-запрошення може лише власник сайту');
-    const { data, error } = await client.rpc('dkvs_issue_invite');
+    const loginName = document.getElementById('inviteLoginName').value.trim();
+    if (!loginName) return msg('Вкажіть Nickname для входу, за яким закріпити код');
+    if (loginName.length > 50) return msg('Nickname має бути не довшим за 50 символів');
+    const { data, error } = await client.rpc('dkvs_issue_invite', { p_login_name: loginName });
     if (error) return msg(errorText(error));
     document.getElementById('inviteResultCode').textContent = data;
+    document.getElementById('inviteResultLogin').textContent = loginName;
     document.getElementById('inviteResult').style.display = 'block';
     try {
       const { data: sessionData, error: sessionError } = await client.auth.getSession();
@@ -309,7 +313,7 @@
       if (!accessToken) return msg('Код створено, але сесія входу відсутня. Увійдіть знову. Код показано нижче.');
       const { error: notifyError } = await client.functions.invoke('send-invite-telegram', {
         headers: { Authorization: `Bearer ${accessToken}` },
-        body: { code: data }
+        body: { code: data, login_name: loginName }
       });
       if (notifyError) {
         let details = notifyError.message || 'невідома помилка';
@@ -319,7 +323,7 @@
         } catch {}
         return msg('Код створено, але Telegram: ' + details + '. Код показано нижче.');
       }
-      msg('Код-запрошення створено та надіслано в Telegram');
+      msg('Код для ' + loginName + ' створено та надіслано в Telegram');
     } catch (error) {
       msg('Код створено, але Telegram: ' + (error && error.message ? error.message : 'невідома помилка') + '. Код показано нижче.');
     }
