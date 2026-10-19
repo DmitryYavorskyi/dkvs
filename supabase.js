@@ -302,7 +302,13 @@
     if (error) return msg(errorText(error));
     document.getElementById('inviteResultCode').textContent = data;
     document.getElementById('inviteResult').style.display = 'block';
-    msg('Код-запрошення створено');
+    try {
+      const { error: notifyError } = await client.functions.invoke('send-invite-telegram', { body: { code: data } });
+      if (notifyError) return msg('Код створено, але Telegram не налаштований або повідомлення не надіслано. Код показано нижче.');
+      msg('Код-запрошення створено та надіслано в Telegram');
+    } catch {
+      msg('Код створено, але Telegram не налаштований або повідомлення не надіслано. Код показано нижче.');
+    }
   };
   window.copyInvite = async function () {
     const code = document.getElementById('inviteResultCode').textContent;
