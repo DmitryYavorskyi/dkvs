@@ -5,11 +5,13 @@
 ## Перший запуск
 
 1. Запустіть актуальний `supabase-schema.sql` у Supabase → SQL Editor. Схема безпечно оновлюється повторним запуском. Нові реєстрації потребують персонального коду доступу, закріпленого за Nickname. Працівник використовує його під час реєстрації та надалі для входу. Supabase Auth зберігає його як обліковий пароль у хешованому вигляді.
-2. У Supabase відкрийте Authentication → Providers → Email і вимкніть підтвердження email. Для входу сайт використовує ім’я та пароль, а не адресу пошти.
+2. У Supabase відкрийте Authentication → Providers → Email і вимкніть підтвердження email. На сайті працівники входять за Nickname та персональним кодом доступу.
 3. Якщо власника ще немає, створіть стартовий одноразовий код у SQL Editor:
 
 ```sql
-insert into public.dkvs_invites default values returning code;
+insert into public.dkvs_invites (reserved_login_name)
+values (lower(trim('Дмитро Яворський')))
+returning code;
 ```
 
 4. Зареєструйте власника на сайті з цим кодом і створіть його обліковий запис.
