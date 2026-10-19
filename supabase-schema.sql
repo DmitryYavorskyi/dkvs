@@ -33,6 +33,14 @@ drop index if exists public.dkvs_profiles_login_name_unique;
 create unique index dkvs_profiles_login_name_unique
   on public.dkvs_profiles (lower(login_name)) where active = true;
 
+create table if not exists public.dkvs_invites (
+  code uuid primary key default gen_random_uuid(),
+  created_by uuid not null references auth.users(id),
+  created_at timestamptz not null default now(),
+  used_at timestamptz,
+  used_by uuid references auth.users(id)
+);
+
 create table if not exists public.dkvs_records (
   id uuid primary key default gen_random_uuid(),
   category text not null check (category in ('prisoner','blacklist','vehicle','announcement')),
@@ -85,7 +93,26 @@ declare
   n text;
   uname text;
   pid text;
+  invite_code_value text;
+  invite_row uuid;
 begin
+  invite_code_value := trim(coalesce(new.raw_user_meta_data->>'invite_code', ''));
+  if invite_code_value = '' then
+    raise exception 'Для реєстрації потрібен код-запрошення';
+  end if;
+
+  select code into invite_row
+  from public.dkvs_invites
+  where code::text = invite_code_value and used_at is null
+  for update;
+  if not found then
+    raise exception 'Код-запрошення невірний або вже використаний';
+  end if;
+
+  update public.dkvs_invites
+  set used_at = now(), used_by = new.id
+  where code = invite_row;
+
   n := coalesce(nullif(trim(new.raw_user_meta_data->>'display_name'), ''), split_part(new.email, '@', 1));
   uname := coalesce(nullif(trim(new.raw_user_meta_data->>'login_name'), ''), lower(split_part(new.email, '@', 1)));
   pid := coalesce(new.raw_user_meta_data->>'player_id', '');
@@ -100,6 +127,29 @@ create trigger dkvs_auth_user_created
   after insert on auth.users
   for each row execute function public.dkvs_create_profile();
 
+-- Owners issue single-use invitation codes. Codes stay private in this table and are consumed by the auth trigger.
+create or replace function public.dkvs_issue_invite()
+returns text
+language plpgsql
+security definer
+set search_path = public
+as $
+declare
+  new_code uuid;
+begin
+  if public.dkvs_current_role() is distinct from 'Власник сайту' then
+    raise exception 'Створювати коди-запрошення може лише власник сайту';
+  end if;
+  insert into public.dkvs_invites(created_by) values (auth.uid()) returning code into new_code;
+  return new_code::text;
+end;
+$;
+revoke all on function public.dkvs_issue_invite() from public, anon;
+grant execute on function public.dkvs_issue_invite() to authenticated;
+
+
+alter table public.dkvs_invites enable row level security;
+revoke all on table public.dkvs_invites from public, anon, authenticated;
 alter table public.dkvs_profiles enable row level security;
 alter table public.dkvs_records enable row level security;
 alter table public.dkvs_presence enable row level security;
