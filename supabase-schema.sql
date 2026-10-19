@@ -133,7 +133,7 @@ returns text
 language plpgsql
 security definer
 set search_path = public
-as $
+as $invite$
 declare
   new_code uuid;
 begin
@@ -143,7 +143,7 @@ begin
   insert into public.dkvs_invites(created_by) values (auth.uid()) returning code into new_code;
   return new_code::text;
 end;
-$;
+$invite$;
 revoke all on function public.dkvs_issue_invite() from public, anon;
 grant execute on function public.dkvs_issue_invite() to authenticated;
 
