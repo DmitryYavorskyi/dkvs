@@ -219,9 +219,11 @@
     const name = uname.value.trim();
     const pass = pw.value;
     const playerId = document.getElementById('playerId').value.trim();
+    const inviteCode = document.getElementById('inviteCode').value.trim();
     if (!name || !pass) return msg('Введіть ім’я користувача та пароль');
     try {
       if (reg) {
+        if (!inviteCode) return msg('Введіть код-запрошення від власника');
         if (!playerId) return msg('Вкажіть ID гравця');
         const { data: existing, error: lookupError } = await client.rpc('dkvs_lookup_login', { requested_login: name });
         if (lookupError) throw lookupError;
@@ -229,7 +231,7 @@
         const email = await usernameEmail(name, crypto.getRandomValues(new Uint32Array(4)).join('-') + Date.now());
         const { data, error } = await client.auth.signUp({
           email, password: pass,
-          options: { data: { login_name: name.toLocaleLowerCase('uk-UA'), display_name: name, player_id: playerId } }
+          options: { data: { login_name: name.toLocaleLowerCase('uk-UA'), display_name: name, player_id: playerId, invite_code: inviteCode } }
         });
         if (error) throw error;
         if (!data.session) return msg('Акаунт створено. Вимкніть підтвердження email у Supabase Auth, тоді можна буде увійти за ім’ям і паролем.');
@@ -292,6 +294,20 @@
       refreshOnlinePresence();
     }
   });
+
+  window.issueInvite = async function () {
+    if (!d.user || d.user.role !== 'Власник сайту') return msg('Створювати код-запрошення може лише власник сайту');
+    const { data, error } = await client.rpc('dkvs_issue_invite');
+    if (error) return msg(errorText(error));
+    document.getElementById('inviteResultCode').textContent = data;
+    document.getElementById('inviteResult').style.display = 'block';
+    msg('Код-запрошення створено');
+  };
+  window.copyInvite = async function () {
+    const code = document.getElementById('inviteResultCode').textContent;
+    try { await navigator.clipboard.writeText(code); msg('Код скопійовано'); }
+    catch { msg('Не вдалося скопіювати код'); }
+  };
 
   window.assign = async function () {
     if (!d.user || !['Власник сайту','Лідер'].includes(d.user.role)) return msg('Недостатньо прав для призначення ролей');
