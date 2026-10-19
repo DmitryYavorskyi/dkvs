@@ -233,7 +233,7 @@
           options: { data: { login_name: name.toLocaleLowerCase('uk-UA'), display_name: name, player_id: playerId, invite_code: accessCode } }
         });
         if (error) throw error;
-        if (!data.session) return msg('Акаунт створено. Вимкніть підтвердження email у Supabase Auth, тоді можна буде увійти за ім’ям і паролем.');
+        if (!data.session) return msg('Акаунт створено. Вимкніть підтвердження email у Supabase Auth, тоді можна буде увійти за Nickname та кодом доступу.');
         hide('auth');
         await startSession(data.session.user, true);
       } else {
