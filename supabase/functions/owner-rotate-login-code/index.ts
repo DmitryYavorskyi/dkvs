@@ -27,7 +27,7 @@ Deno.serve(async (req) => {
     return json({ error: "Invalid request" }, 400);
   }
   const loginName = typeof body.login_name === "string" ? body.login_name.trim().toLocaleLowerCase("uk-UA") : "";
-  if (!loginName || loginName.length > 50 || loginName.includes("\\n") || loginName.includes("\\r")) {
+  if (!loginName || loginName.length > 50 || loginName.includes("\n") || loginName.includes("\r")) {
     return json({ error: "Invalid login nickname" }, 400);
   }
 
