@@ -43,4 +43,4 @@ where lower(login_name) = lower('Дмитро Яворський');
 
 ## Оновлення для кодів, закріплених за Nickname
 
-Застосуйте файл `supabase-invite-binding.sql` у Supabase → SQL Editor. Він додає прив’язку до Nickname і оновлює серверну перевірку. Після цього розгорніть оновлений код Edge Function `send-invite-telegram` із репозиторію, щоб у Telegram-повідомленні також відображався Nickname.
+Застосуйте файл `supabase-invite-binding.sql` у Supabase → SQL Editor. Він додає прив’язку до Nickname і оновлює серверну перевірку. Старі коди, створені до цієї зміни, не прив’язані й більше не спрацюють — створіть нові. Після цього розгорніть оновлений код Edge Function `send-invite-telegram` із репозиторію, щоб у Telegram-повідомленні також відображався Nickname.
